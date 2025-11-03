@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nakurity Studio</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body, html {
+      height: 100%;
+      font-family: 'Inter', sans-serif;
+      color: #fff;
+      overflow: hidden;
+      scrollbar-width: none;     /* Firefox */
+      -ms-overflow-style: none;  /* IE/Edge */
+      scroll-behavior: smooth;
+    }
+
+    /* YouTube background */
+    .video-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      z-index: -2;
+    }
+
+    .video-bg iframe {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 120vw; /* ensures full coverage horizontally */
+      height: 120vh; /* ensures full coverage vertically */
+      transform: translate(-50%, -50%);
+      pointer-events: none; /* disables clicks and hovers */
+    }
+
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.45);
+      z-index: -1;
+    }
+
+    .content {
+      position: relative;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      transition: opacity 2s ease, transform 2s ease;
+    }
+
+    .content.fade-out {
+      opacity: 0;
+      transform: translateY(-30px);
+      pointer-events: none;
+    }
+
+    h1 {
+      font-size: 3rem;
+      letter-spacing: 1px;
+      margin-bottom: 0.5rem;
+    }
+
+    p {
+      font-size: 1.2rem;
+      opacity: 0.85;
+      margin-bottom: 2rem;
+    }
+
+    .btn {
+      background: #ff914d;
+      border: none;
+      padding: 0.8rem 1.8rem;
+      font-size: 1rem;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.3s ease, transform 0.2s ease;
+    }
+
+    .btn:hover {
+      background: #ffb77d;
+      transform: scale(1.05);
+    }
+
+    .enterBtn {
+      background: #ff914d;
+      border: none;
+      padding: 0.8rem 1.8rem;
+      color: white;
+      font-size: 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.3s ease, transform 0.2s ease;
+    }
+
+    .enterBtn:hover {
+      background: #ffb77d;
+      color: white;
+      transform: scale(1.05);
+    }
+
+    .unmute-btn {
+      position: fixed;
+      bottom: 20px;
+      right: 25px;
+      background: rgba(0, 0, 0, 0);
+      color: #ffffff00;
+      border: none;
+      padding: 0.6rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.86rem;
+      font-weight: 550;
+      z-index: 2;
+      transition: background 0.3s ease, transform 0.2s ease;
+    }
+
+    .unmute-btn:hover {
+      color: #fff;
+      background: rgba(0, 0, 0, 0.493);
+      transform: scale(1.05);
+    }
+
+    .credits {
+      position: fixed;
+      bottom: 20px;
+      left: 25px;
+      font-size: 0.86rem;
+      font-weight: 550;
+      text-align: center;
+      opacity: 0;
+      transition: opacity 1s ease;
+      z-index: 2;
+      background: rgba(0,0,0,0.5);
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      backdrop-filter: blur(5px);
+    }
+
+    .credits a {
+      color: #ffb77d;
+      text-decoration: none;
+    }
+
+    .credits:hover {
+      opacity: 0;
+      transition: opacity 1s ease;
+    }
+
+    .dynamic-section {
+      min-height: 100vh;
+      padding: 5rem 10vw;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(10px);
+      border-top: 1px solid rgba(255,255,255,0.1);
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.8s ease, transform 0.8s ease;
+    }
+    .dynamic-section.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <script>
+    // Example: this value should be injected server-side
+    // window.isNakurityDevice = true/false;
+
+    // We'll default to false
+    window.isNakurityDevice = true;
+
+    // If server injected a meta tag or variable
+    const nakurityMeta = document.querySelector('meta[name="nakurity-device"]');
+    if (nakurityMeta && nakurityMeta.content === "displaying-website") {
+      window.isNakurityDevice = true;
+    }
+
+    console.log("isNakurityDevice:", window.isNakurityDevice);
+  </script>
+
+  <script>
+    // Initialization Script: this script should have all of the variables
+    // that are relevant to the section of html that can be seen below this script
+
+    let schedule = [];
+    let currentIndex = 0;
+    let unmuted = false;
+
+    // Load schedule
+    async function loadSchedule() {
+      try {
+        // Adjust to your actual domain or relative path if served by the same origin
+        const res = await fetch('https://backend.nakurity.com/api/ncom/schedule');
+        const data = await res.json();
+        // Schedule can be { schedule, nextRefresh } or a direct array (depending on first load)
+        schedule = Array.isArray(data) ? data : (data.schedule || []);
+        console.log('Loaded schedule:', schedule);
+      } catch (err) {
+        console.error('Failed to load schedule:', err);
+        // fallback single video if API fails
+        schedule = [{
+          id: 'Vm5NBjdeCgc',
+          title: 'Neuro & Evil – Space Oddity (Fanmade Acoustic Version)',
+          author: 'Neuro21 Clip Team [Neuro-sama CN Clipper]',
+          link: 'https://youtu.be/Vm5NBjdeCgc',
+          channel: 'https://www.youtube.com/@Neuro21ClipTeam'
+        }];
+      }
+    }
+  </script>
+
+  <div class="video-bg">
+    <iframe id="videoFrame"
+      src="https://www.youtube.com/embed/Vm5NBjdeCgc?autoplay=1&mute=1&loop=1&playlist=Vm5NBjdeCgc&controls=0&showinfo=0&modestbranding=1&enablejsapi=1"
+      frameborder="0"
+      allow="autoplay; fullscreen"
+      allowfullscreen>
+    </iframe>
+  </div>
+
+  <!-- This is placed here, to be more easily readable along side its logic below -->
+  <div class="credits" id="credits"><br>
+    Video: <a href="https://youtu.be/" target="_blank">Undefined</a><br>
+    Channel: <a href="https://www.youtube.com" target="_blank">@undefined</a><br>
+  </div>
+
+  <script>
+    // This is the function that shows the credits.
+    // Also, this is placed here so that no init errors occur.
+    function showCredits() {
+      // This is placed here, so that no init errors occur.
+      const credits = document.getElementById('credits');
+
+      credits.style.opacity = '1';
+      setTimeout(() => credits.style.opacity = '0', 7000);
+    }
+  </script>
+
+  <script>
+    // This script should contain the logic for the video-bg class above
+    // it should only contain functions and variables
+    const iframe = document.getElementById('videoFrame');
+
+    function playVideo(index) {
+      if (!schedule.length) return;
+      const vid = schedule[index];
+      const params = new URLSearchParams({
+        autoplay: 1,
+        mute: unmuted ? 0 : 1,
+        loop: 1,
+        playlist: vid.id,
+        controls: 0,
+        showinfo: 0,
+        modestbranding: 1,
+        enablejsapi: 1
+      }).toString();
+
+      iframe.src = `https://www.youtube.com/embed/${vid.id}?${params}`;
+
+      // Update credits
+      credits.innerHTML = `
+        <br>Video: <a href="${vid.link}" target="_blank">${vid.title}</a><br>
+        Channel: <a href="${vid.channel}" target="_blank">${vid.author}</a><br>
+      `;
+      showCredits();
+    }
+
+    function nextVideo() {
+      if (!schedule.length) return;
+      currentIndex = (currentIndex + 1) % schedule.length;
+      playVideo(currentIndex);
+    }
+  </script>
+
+  <!-- This is placed here, to be more easily readable along side its logic below -->
+  <button class="unmute-btn" id="unmuteBtn">Unmute</button>
+
+  <script>
+    // Initialize playback loop
+    document.addEventListener('DOMContentLoaded', async () => {
+      await loadSchedule();
+      playVideo(currentIndex);
+
+      // Rotate video every 3 minutes
+      setInterval(nextVideo, 180000);
+
+      // Periodically re-show credits
+      if (window.isNakurityDevice) setInterval(showCredits, 60000);
+    });
+
+    // Placed here, instead of the top script. to avoid init errors
+    const unmuteBtn = document.getElementById('unmuteBtn');
+
+    // Unmute button
+    unmuteBtn.addEventListener('click', () => {
+      iframe.contentWindow.postMessage('{"event":"command","func":"unMute","args":""}', '*');
+      iframe.contentWindow.postMessage('{"event":"command","func":"setVolume","args":[' + (unmuted ? 0 : 100) + ']}', '*');
+      unmuted = !unmuted; // This sends to the youtube iframe to mute/unmute the video
+      unmuteBtn.textContent = unmuted ? 'Mute' : 'Unmute';
+    });
+  </script>
+
+  <div class="overlay"></div>
+
+  <div class="content" id="content">
+    <h1>Nakurity Studio</h1>
+    <p id="description">The place detailing Project Nakurity</p>
+    <button class="enterBtn" id="enterBtn" hidden>Enter</button>
+  </div>
+
+  <script>
+    // This contains the logic for <div class="content">
+    // It is placed here, to be more easily readable
+    // alongside its html counterpart above
+    document.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => {document.body.style.overflowY = 'scroll'}, 10000);
+      setTimeout(() => {document.getElementById("content").classList.add("fade-out");}, 30000);
+
+      // Show credits every 60s, if it's a nakurity device
+      if (window.isNakurityDevice) setInterval(showCredits, 60000);
+
+      // Some random features, decided by chance. If it's a nakurity device
+      if (window.isNakurityDevice) {
+        unmuteBtn.click(); // Unmute video (since the nakurity device tag is supposed to say its going to be on a tv)
+
+        // 50% chance of hiding the description
+        if (Math.random() < 0.5) document.getElementById("description").hidden = true;
+
+        // Hiding the content after 33s
+        setTimeout(() => {document.getElementById("content").style.display = "none";}, 33000);
+      }
+    });
+  </script>
+
+  <script>
+    // This is placed here, to be more easily readable
+    // alongside dynamic section's html counterpart below
+    document.querySelector('.enterBtn').addEventListener('click', () => {
+      document.getElementById('dynamicSections').scrollIntoView({ behavior: 'smooth' });
+    });
+
+    // Path to your folder
+    const sectionsPath = 'nakurity-domain/sections/';
+
+    // List of .html files you want to load
+    const sectionsList = [
+      'about.html',
+      'projects.html',
+      'team.html'
+    ];
+
+    // The dynamic sections container
+    const container = document.getElementById('dynamicSections');
+  </script>
+
+  <section id="dynamicSections"></section>
+
+  <script>
+    // This should contain the logic for loading dynamic sections
+    // It's placed here, so that (like all scripts) it's more easily readable
+    async function loadSections() {
+      for (const file of sectionsList) {
+        try {
+          const res = await fetch(`${sectionsPath}${file}`);
+          if (!res.ok) throw new Error(`Failed to load ${file}`);
+          const html = await res.text();
+
+          const section = document.createElement('section');
+          section.classList.add('dynamic-section');
+          section.innerHTML = html;
+
+          container.appendChild(section);
+        } catch (err) {
+          console.error(err);
+        }
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadSections(); // Load dynamic sections
+
+      // Intersection observer
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) entry.target.classList.add('visible');
+        });
+      }, { threshold: 0.1 });
+
+      setTimeout(() => { // Wait 1.5s before observing
+        document.querySelectorAll('.dynamic-section').forEach(section => observer.observe(section));
+      }, 1500); // This is to wait for observer to be ready
+    });
+
+  </script>
+
+  <script>
+    // Random bits and bobs, that idk what to catergorize with
+    let windowMinimized = null;
+    document.addEventListener('visibilitychange', () => {
+        if (windowMinimized === false) {
+          showCredits(); // This is so that, the credits is shown to the user.
+          // When the user will absolutely see it.
+          // I don't wanna get taken down for a copyright strike - Nakurity
+          // So, this is here to ensure that the user sees the credits.
+          // Plus, I think the iframe views are also added to youtube stats.
+        }
+        // Update windowMinimized. This is updated last, so that the if function
+        // above can see that previous value. And do stuff accordingly, idk why
+        // it took me so long to think of that, when I thought of that too.
+        windowMinimized = document.visibilityState === 'hidden' ? true : false;
+    });
+  </script>
+</body>
+</html>
