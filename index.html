@@ -216,11 +216,12 @@
         console.error('Failed to load schedule:', err);
         // fallback single video if API fails
         schedule = [{
-          id: 'Vm5NBjdeCgc',
-          title: 'Neuro & Evil – Space Oddity (Fanmade Acoustic Version)',
+          id: 'OnkXWkvLSkc',
+          title: '【Epic Orchestral Cover】GODS - Neuro & Evil (NewJeans)',
           author: 'Neuro21 Clip Team [Neuro-sama CN Clipper]',
-          link: 'https://youtu.be/Vm5NBjdeCgc',
-          channel: 'https://www.youtube.com/@Neuro21ClipTeam'
+          link: 'https://www.youtube.com/watch?v=OnkXWkvLSkc',
+          channel: 'https://www.youtube.com/@Neuro21ClipTeam',
+          error: "Failed to sync to globalized schedule network, using local schedule instead."
         }];
       }
     }
@@ -279,6 +280,14 @@
         <br>Video: <a href="${vid.link}" target="_blank">${vid.title}</a><br>
         Channel: <a href="${vid.channel}" target="_blank">${vid.author}</a><br>
       `;
+
+      if (vid?.error) {
+        credits.innerHTML = `
+          <br>Video: <a href="${vid.link}" target="_blank">${vid.title}</a><br>
+          Channel: <a href="${vid.channel}" target="_blank">${vid.author}</a><br>
+          Metadata (error): ${vid?.error}<br>
+        `;
+      }
       showCredits();
     }
 
